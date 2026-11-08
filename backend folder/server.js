@@ -15,7 +15,7 @@ dns.setServers(["8.8.8.8", "8.8.4.4"]);
 dotenv.config();
 
 const app = express();
-const PORT = process.env.PORT || 5000;
+const PORT = Number(process.env.PORT) || 5000;
 
 const allowedOrigins = [
   "http://localhost:5173",
@@ -32,6 +32,11 @@ app.use(cors({
 app.use(express.json());
 
 app.use("/api/auth", authRouter);
+// Root health check for Render and browser diagnostics
+app.get("/", (req, res) => {
+  res.status(200).json({ success: true, message: "ContractCare API is running" });
+});
+
 // Health check
 app.get("/api/health", (req, res) => {
   res.status(200).json({
@@ -544,8 +549,12 @@ async function startServer() {
 
     console.log("MongoDB Atlas connected successfully!");
 
-    app.listen(PORT, () => {
-      console.log(`Backend server running at http://localhost:${PORT}`);
+    const server = app.listen(PORT, "0.0.0.0", () => {
+      console.log(`ContractCare API listening on 0.0.0.0:${PORT}`);
+    });
+    server.on("error", (error) => {
+      console.error("HTTP server failed to start:", error);
+      process.exit(1);
     });
   } catch (error) {
     console.error("MongoDB connection failed:", error.message);
