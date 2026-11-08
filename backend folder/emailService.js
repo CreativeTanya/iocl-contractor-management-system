@@ -1,35 +1,45 @@
-import nodemailer from "nodemailer";
-import dotenv from "dotenv";
-
-dotenv.config();
-
-const transporter = nodemailer.createTransport({
-    service: "gmail",
-
-    auth: {
-        user: process.env.EMAIL_USER,
-        pass: process.env.EMAIL_APP_PASSWORD
-    }
-});
+const RESEND_API_URL = "https://api.resend.com/emails";
 
 export async function sendEmail({ to, subject, text, html }) {
-    if (!process.env.EMAIL_USER || !process.env.EMAIL_APP_PASSWORD) {
-        throw new Error("Gmail configuration is missing in .env");
-    }
+  const apiKey = process.env.RESEND_API_KEY;
+  const from = process.env.EMAIL_FROM;
 
-    if (!to) {
-        throw new Error("Recipient email address is required");
-    }
+  if (!apiKey) {
+    throw new Error("RESEND_API_KEY is missing from the Render environment.");
+  }
 
-    const mailOptions = {
-        from: `"IOCL Contractor Management System" <${process.env.EMAIL_USER}>`,
-        to,
-        subject,
-        text,
-        ...(html ? { html } : {})
-    };
+  if (!from) {
+    throw new Error("EMAIL_FROM is missing from the Render environment.");
+  }
 
-    const result = await transporter.sendMail(mailOptions);
+  if (!to) {
+    throw new Error("Recipient email address is required.");
+  }
 
-    return result;
+  const response = await fetch(RESEND_API_URL, {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${apiKey}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      from,
+      to: [to],
+      subject,
+      text,
+      ...(html ? { html } : {}),
+    }),
+    signal: AbortSignal.timeout(15000),
+  });
+
+  const result = await response.json().catch(() => ({}));
+
+  if (!response.ok) {
+    const providerMessage =
+      result.message || result.error || `Resend returned HTTP ${response.status}`;
+    console.error("Resend email API error:", providerMessage);
+    throw new Error(`Email provider rejected the request: ${providerMessage}`);
+  }
+
+  return result;
 }
