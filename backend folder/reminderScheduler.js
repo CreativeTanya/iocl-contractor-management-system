@@ -359,9 +359,18 @@ export async function runReminderChecks() {
 }
 
 export function startReminderScheduler() {
-    cron.schedule("* * * * *", runReminderChecks, {
+    const mode = process.env.REMINDER_SCHEDULE || "production";
+
+    const schedule =
+        mode === "testing" ? "* * * * *" : "0 9 * * *";
+
+    cron.schedule(schedule, runReminderChecks, {
         timezone: "Asia/Kolkata"
     });
 
-    console.log("Reminder scheduler started: checks every 1 minute.");
+    console.log(
+        mode === "testing"
+            ? "Reminder scheduler started: every 1 minute (Testing Mode)."
+            : "Reminder scheduler started: daily at 9:00 AM IST (Production Mode)."
+    );
 }
