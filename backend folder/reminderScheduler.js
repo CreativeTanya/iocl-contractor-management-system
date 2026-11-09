@@ -358,13 +358,45 @@ export async function runReminderChecks() {
     }
 }
 
+let reminderCheckInProgress = false;
+
+async function runReminderChecksSafely() {
+    if (reminderCheckInProgress) {
+        console.log("Reminder check skipped: previous check is still running.");
+        return;
+    }
+
+    reminderCheckInProgress = true;
+
+    try {
+        await runReminderChecks();
+    } finally {
+        reminderCheckInProgress = false;
+    }
+}
+
 export function startReminderScheduler() {
     const mode = process.env.REMINDER_SCHEDULE || "production";
+
+    if (mode === "both") {
+        cron.schedule("* * * * *", runReminderChecksSafely, {
+            timezone: "Asia/Kolkata"
+        });
+
+        cron.schedule("0 9 * * *", runReminderChecksSafely, {
+            timezone: "Asia/Kolkata"
+        });
+
+        console.log(
+            "Reminder scheduler started: every 1 minute and daily at 9:00 AM IST (Dual Mode)."
+        );
+        return;
+    }
 
     const schedule =
         mode === "testing" ? "* * * * *" : "0 9 * * *";
 
-    cron.schedule(schedule, runReminderChecks, {
+    cron.schedule(schedule, runReminderChecksSafely, {
         timezone: "Asia/Kolkata"
     });
 
